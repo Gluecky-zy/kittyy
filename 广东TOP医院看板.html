@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>广东省-TOP医院销售看板</title>
+    <script src="echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            background: linear-gradient(180deg, #f5faff 0%, #ffffff 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        .header {
+            background: #1873CF;
+            color: white;
+            padding: 12px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        @media (max-width: 768px) {
+            .header {
+                padding: 10px 12px;
+            }
+            .header h1 {
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+        }
+        .header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-align: left;
+        }
+        .filter-container {
+            display: flex;
+            justify-content: flex-start;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            gap: 6px;
+            padding: 5px 0;
+            -webkit-overflow-scrolling: touch;
+        }
+        .filter-container::-webkit-scrollbar { display: none; }
+        .filter-btn {
+            flex: 0 0 auto;
+            padding: 5px 12px;
+            border: 1px solid rgba(255,255,255,0.4);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 11px;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover { background: rgba(255,255,255,0.2); }
+        .filter-btn.active {
+            background: white;
+            color: #1873CF;
+            border-color: white;
+            font-weight: 600;
+        }
+        .main {
+            padding: 15px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        @media (max-width: 768px) {
+            .main {
+                padding: 10px;
+            }
+        }
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        /* 响应式布局 */
+        @media (max-width: 1024px) {
+            .kpi-row {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        @media (max-width: 768px) {
+            .kpi-row {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+        }
+        @media (max-width: 480px) {
+            .kpi-row {
+                grid-template-columns: 1fr;
+            }
+            .kpi-card {
+                min-height: auto;
+                padding: 10px 12px;
+            }
+        }
+        .kpi-card {
+            background: white;
+            border-radius: 10px;
+            padding: 0 8px 10px 8px;
+            box-shadow: 0 2px 12px rgba(24, 115, 207, 0.08);
+            text-align: center;
+            min-height: 90px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(24, 115, 207, 0.15);
+        }
+        .kpi-card::before {
+            content: '';
+            display: block;
+            height: 5px;
+            width: 100%;
+            margin-bottom: 10px;
+            border-radius: 12px 12px 0 0;
+        }
+        .kpi-card:nth-child(1)::before { background: linear-gradient(90deg, #FF6B35, #FF8F6B); }
+        .kpi-card:nth-child(2)::before { background: linear-gradient(90deg, #1873CF, #4A9FE8); }
+        .kpi-card:nth-child(3)::before { background: linear-gradient(90deg, #00B894, #00CEC9); }
+        .kpi-card:nth-child(4)::before { background: linear-gradient(90deg, #6C5CE7, #A29BFE); }
+        .kpi-card:nth-child(5)::before { background: linear-gradient(90deg, #FD79A8, #FDCB6E); }
+        .kpi-card:nth-child(6)::before { background: linear-gradient(90deg, #E17055, #FAB1A0); }
+        .kpi-card.highlight {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #1873CF;
+        }
+        .kpi-card.highlight .kpi-subtitle,
+        .kpi-card.highlight .kpi-detail { color: #5a9bd5; }
+        .kpi-title { font-size: 11px; color: #555; margin-bottom: 4px; font-weight: 600; }
+        .kpi-card.highlight .kpi-title { color: #1873CF; }
+        .kpi-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1873CF;
+            margin-bottom: 2px;
+            line-height: 1.2;
+        }
+        .kpi-card.highlight .kpi-value { color: #1873CF; }
+        .kpi-subtitle { font-size: 9px; color: #aaa; }
+        .kpi-subtitle .rate-num { color: #1873CF; font-weight: 700; }
+        .kpi-detail { font-size: 10px; color: #666; }
+        .status-tag {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .status-tag.warning, .status-tag.success { background: rgba(255,255,255,0.3); color: #fff; }
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 18px;
+            box-shadow: 0 2px 12px rgba(24, 115, 207, 0.06);
+        }
+        @media (max-width: 768px) {
+            .section {
+                padding: 12px;
+                margin-bottom: 12px;
+                border-radius: 8px;
+            }
+        }
+        .section-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1873CF;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f2f5;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .progress-section {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            padding: 10px 0;
+        }
+        .progress-item { text-align: center; padding: 10px 8px; background: linear-gradient(135deg, #f8fbff 0%, #f0f7ff 100%); border-radius: 12px; transition: transform 0.2s; }
+        .progress-item:hover { transform: scale(1.02); }
+        .progress-ring {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 8px;
+        }
+        .progress-ring canvas { position: absolute; top: 0; left: 0; }
+        .progress-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 6px;
+        }
+        .progress-target, .progress-actual {
+            font-size: 9px;
+            color: #718096;
+            margin: 1px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            white-space: nowrap;
+        }
+        .progress-target::before {
+            content: '';
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FF6B35' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 6v6l4 2'/%3E%3C/svg%3E") no-repeat center;
+            background-size: contain;
+        }
+        .progress-actual::before {
+            content: '';
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FF6B35' stroke-width='2'%3E%3Cpath d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/%3E%3Cpath d='M22 4L12 14.01l-3-3'/%3E%3C/svg%3E") no-repeat center;
+            background-size: contain;
+        }
+        .progress-target span, .progress-actual span {
+            color: #FF6B35;
+            font-weight: bold;
+        }
+        .table-section { 
+            overflow-x: auto; 
+            -webkit-overflow-scrolling: touch;
+            border-radius: 8px;
+            background: white;
+        }
+        .table-section table {
+            white-space: nowrap;
+        }
+        @media (max-width: 768px) {
+            .table-section {
+                margin: 0 -12px;
+                padding: 0 12px;
+            }
+        }
+        .detail-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .detail-tab-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: #666;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .detail-tab-btn:hover { color: #1873CF; }
+        .detail-tab-btn.active {
+            color: #1873CF;
+            font-weight: 600;
+        }
+        .detail-tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #3182ce;
+        }
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        /* 产品分类切片器 */
+        .category-filter {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .category-btn {
+            flex: 0 0 auto;
+            padding: 6px 14px;
+            border: 1px solid #1873CF;
+            background: white;
+            color: #1873CF;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .category-btn:hover {
+            background: #e3f2fd;
+        }
+        .category-btn.active {
+            background: #1873CF;
+            color: white;
+        }
+        /* 序号列样式 */
+        .seq-cell {
+            font-weight: 600;
+            color: #1873CF;
+            background: linear-gradient(135deg, #f0f7ff 0%, #e3f2fd 100%);
+            border-right: 2px solid #1873CF;
+            width: 36px;
+            min-width: 36px;
+            text-align: center;
+        }
+        th.seq-cell {
+            color: #1873CF;
+            font-weight: 700;
+        }
+        /* 在销产品数列链接样式 */
+        .link-cell::before {
+            content: '▶';
+            color: #1873CF;
+            font-size: 8px;
+            margin-right: 2px;
+            vertical-align: middle;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            min-width: 600px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 10px 8px;
+            text-align: center;
+            border-bottom: 1px solid #e8f0fe;
+            white-space: nowrap;
+        }
+        th {
+            background: linear-gradient(135deg, #f0f7ff 0%, #e3f2fd 100%);
+            color: #1873CF;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover { background: #f7fafc; }
+        .link-cell {
+            color: #3182ce;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .link-cell:hover { color: #1873CF; }
+        .rate-high { color: #2f855a; }
+        .rate-mid { color: #d69e2e; }
+        .rate-low { color: #c53030; }
+        /* 详情表格切换 */
+        .detail-section {
+            display: none;
+        }
+        .detail-section.active {
+            display: block;
+        }
+        /* 下钻时隐藏Tab */
+        .section.drilldown-mode .detail-tabs {
+            display: none;
+        }
+        @media (max-width: 1200px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 768px) {
+            .header h1 { font-size: 14px; }
+            .filter-btn { padding: 4px 10px; font-size: 11px; }
+            .kpi-row { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+            .kpi-card { padding: 8px 4px; min-height: 75px; }
+            .kpi-value { font-size: 14px; }
+            .kpi-title { font-size: 9px; }
+            .kpi-detail { font-size: 8px; }
+            .progress-section { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+            .progress-ring { width: 60px; height: 60px; }
+            .progress-label { font-size: 11px; }
+            .progress-target, .progress-actual { font-size: 10px; }
+            table { font-size: 10px; }
+            th, td { padding: 4px 3px; }
+            .section-title { font-size: 12px; }
+            #cityTerminalChart { height: 200px; }
+        }
+        /* 下钻表格样式 */
+        .detail-header-row td { padding: 0 !important; background: #f8f9fa; }
+        .detail-subtable { padding: 10px; position: relative; }
+        .detail-subtable table { margin-bottom: 10px; }
+        .detail-subtable th { background: #d4e6f7; color: #1a5a9e; }
+        .detail-row { background: #fff; }
+        .collapse-btn {
+            background: #1873cf;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .collapse-btn:hover { background: #155a9a; }
+        @media (max-width: 480px) {
+            .main { padding: 10px; }
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .kpi-card { padding: 8px 5px; }
+            .kpi-value { font-size: 16px; }
+            .kpi-detail { font-size: 9px; }
+            .section-title { font-size: 13px; }
+            .progress-section { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+            .progress-ring { width: 60px; height: 60px; }
+            .filter-btn { padding: 4px 10px; font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 广东省-TOP医院销售看板</h1>
+        <div class="filter-container" id="filterBtns">
+            <button class="filter-btn active" data-filter="all">总体</button>
+        </div>
+    </div>
+
+    <div class="main">
+        <!-- KPI卡片 -->
+        <div class="kpi-row">
+            <div class="kpi-card">
+                <div class="kpi-title">💰 销售目标金额</div>
+                <div class="kpi-value" id="kpi1-target">-</div>
+                <div class="kpi-subtitle">26年全年目标（无税）</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">📈 当前销售金额</div>
+                <div class="kpi-value" id="kpi1-actual">-</div>
+                <div class="kpi-subtitle">26年累计销售（无税）</div>
+            </div>
+            <div class="kpi-card highlight">
+                <div class="kpi-title">🎯 目标完成率</div>
+                <div class="kpi-value" id="kpi1-rate">-</div>
+                <div class="kpi-subtitle">26年累计完成进度</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">🏥 目标终端数/在销终端数</div>
+                <div class="kpi-value"><span id="kpi2-total">-</span> / <span id="kpi2-onsale-count">-</span></div>
+                <div class="kpi-subtitle" id="kpi2-rate">在销率 <span class="rate-num">-%</span></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">💊 在销产品数</div>
+                <div class="kpi-value" id="kpi3-onsale">-</div>
+                <div class="kpi-subtitle">已挂网产品数<span class="rate-num" id="kpi3-total-products">96</span>个</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">💵 销售费用</div>
+                <div class="kpi-value" id="kpi4-fee">-</div>
+                <div class="kpi-subtitle">费用率 <span class="rate-num" id="kpi4-feerate">-%</span></div>
+            </div>
+        </div>
+
+        <!-- 销售类型完成进度 -->
+        <div class="section">
+            <div class="section-title">📊 销售类型完成进度</div>
+            <div class="progress-section">
+                <div class="progress-item">
+                    <div class="progress-ring" id="ring1"></div>
+                    <div class="progress-label">品牌品</div>
+                    <div class="progress-target">目标 <span id="pt1-target">-</span></div>
+                    <div class="progress-actual">完成 <span id="pt1-actual">-</span></div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-ring" id="ring2"></div>
+                    <div class="progress-label">高值品</div>
+                    <div class="progress-target">目标 <span id="pt2-target">-</span></div>
+                    <div class="progress-actual">完成 <span id="pt2-actual">-</span></div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-ring" id="ring3"></div>
+                    <div class="progress-label">商销品</div>
+                    <div class="progress-target">目标 <span id="pt3-target">-</span></div>
+                    <div class="progress-actual">完成 <span id="pt3-actual">-</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 城市终端分析 -->
+        <div class="section">
+            <div class="section-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1873CF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 6px;">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                城市终端覆盖情况
+                <span style="font-size:10px;color:#FF6B35;font-weight:500;margin-left:8px;">TOP目标医院20家全覆盖</span>
+            </div>
+            <div id="cityTerminalChart" style="width:100%;height:250px;"></div>
+        </div>
+
+        <!-- 销售明细 -->
+        <div class="section" id="detailSection">
+            <!-- Tab直接作为标题 -->
+            <div class="detail-tabs">
+                <button class="detail-tab-btn active" data-tab="terminal" onclick="switchDetailTab('terminal')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 3px;">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="9" y1="21" x2="9" y2="9"></line>
+                    </svg>
+                    终端销售明细
+                </button>
+                <button class="detail-tab-btn" data-tab="product" onclick="switchDetailTab('product')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 3px;">
+                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <path d="M16 10a4 4 0 0 1-8 0"></path>
+                    </svg>
+                    产品销售明细
+                </button>
+            </div>
+            
+            <!-- 产品分类切片器 -->
+            <div class="category-filter">
+                <button class="category-btn active" data-category="all" onclick="filterByCategory('all')">全产品</button>
+                <button class="category-btn" data-category="品牌品" onclick="filterByCategory('品牌品')">品牌品</button>
+                <button class="category-btn" data-category="高值品" onclick="filterByCategory('高值品')">高值品</button>
+                <button class="category-btn" data-category="商销品" onclick="filterByCategory('商销品')">商销品</button>
+            </div>
+            
+            <!-- 终端销售明细 -->
+            <div id="terminalView" class="detail-section active">
+                <div class="table-section">
+                    <table id="terminalTable">
+                        <thead>
+                            <tr>
+                                <th class="seq-cell">序号</th>
+                                <th>医院总院</th>
+                                <th>在销产品数</th>
+                                <th>医院销售规模</th>
+                                <th>目标金额</th>
+                                <th>当前完成金额</th>
+                                <th>完成率</th>
+                                <th>费用率</th>
+                                <th>招商经理</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 产品销售明细 -->
+            <div id="productView" class="detail-section">
+                <div class="table-section">
+                    <table id="productTable">
+                        <thead>
+                            <tr>
+                                <th class="seq-cell">序号</th>
+                                <th>产品名称</th>
+                                <th>产品分类</th>
+                                <th>在销终端数</th>
+                                <th>目标量</th>
+                                <th>实际销量</th>
+                                <th>目标金额</th>
+                                <th>当前完成金额</th>
+                                <th>完成率</th>
+                                <th>费用率</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 终端-产品明细（终端下钻） -->
+            <div id="terminalProductView" class="detail-section">
+                <div class="table-section">
+                    <table id="terminalProductTable">
+                        <thead>
+                            <tr>
+                                <th>医院总院</th>
+                                <th>目标量</th>
+                                <th>完成量</th>
+                                <th>完成率</th>
+                                <th>客户</th>
+                                <th>实际政策</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 产品-终端明细（产品下钻） -->
+            <div id="productTerminalView" class="detail-section">
+                <div class="table-section">
+                    <table id="productTerminalTable">
+                        <thead>
+                            <tr>
+                                <th>医院总院</th>
+                                <th>等级</th>
+                                <th>目标量</th>
+                                <th>完成量</th>
+                                <th>完成率</th>
+                                <th>客户</th>
+                                <th>实际政策</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dashboardData = null;
+        let currentFilter = 'all';
+        let currentView = 'terminal';
+        let currentDetailTab = 'terminal';
+        let currentCategory = 'all';
+        let searchKeyword = '';
+        let drilldownStack = [];
+        let chartInstances = {};
+
+        function formatMoney(val) {
+            if (val >= 10000) return (val / 10000).toFixed(2) + '万';
+            return val ? val.toFixed(2) : '0';
+        }
+
+        async function loadData() {
+            try {
+                const response = await fetch('./dashboard_data.json?t=' + new Date().getTime());
+                if (!response.ok) throw new Error('网络响应异常');
+                dashboardData = await response.json();
+                aggregateProductData();
+                initFilterBtns();
+                updateDashboard();
+            } catch (e) {
+                console.error('数据加载失败:', e);
+                document.getElementById('kpi1-target').textContent = '加载失败';
+            }
+        }
+
+        function aggregateProductData() {
+            const productStats = {};
+            dashboardData.products.forEach(p => {
+                if (!productStats[p.产品简称]) {
+                    productStats[p.产品简称] = {
+                        name: p.产品简称,
+                        category: p.产品分类,
+                        terminalCount: 0,
+                        targetAmount: 0,
+                        actualAmount: 0
+                    };
+                }
+                if (p.当年销量 > 0 || p.目标销量 > 0) {
+                    productStats[p.产品简称].terminalCount++;
+                }
+                productStats[p.产品简称].targetAmount += (p.目标销量 || 0) * (p.实际政策 || 0);
+                productStats[p.产品简称].actualAmount += (p.当年销量 || 0) * (p.实际政策 || 0);
+            });
+            dashboardData.productSummary = Object.values(productStats);
+        }
+
+        function initFilterBtns() {
+            const container = document.getElementById('filterBtns');
+            const overviewBtn = container.querySelector('[data-filter="all"]');
+            if (overviewBtn) overviewBtn.onclick = () => selectFilter('all');
+            (dashboardData.salespersons || []).forEach(sp => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-btn';
+                btn.dataset.filter = sp;
+                btn.textContent = sp;
+                btn.onclick = () => selectFilter(sp);
+                container.appendChild(btn);
+            });
+            
+            // 初始化等级筛选器
+            initLevelFilter();
+        }
+        
+        function initLevelFilter() {
+            // 等级筛选器已取消
+        }
+
+        function selectFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('#filterBtns .filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.filter === filter);
+            });
+            updateDashboard();
+        }
+
+        function getFilteredData() {
+            if (currentFilter === 'all') return dashboardData.total;
+            return dashboardData.by_salesperson[currentFilter] || {
+                sales_target: 0, sales_actual: 0, sales_2025: 0,
+                sales_fee: 0, terminal_count: 0, product_on_sale: 0, market_scale: 0
+            };
+        }
+
+        function getRingData() {
+            // 根据产品分类切片决定显示哪些分类
+            let categories = ['品牌品', '高值品', '商销品'];
+            if (currentCategory !== 'all') {
+                categories = [currentCategory];
+            }
+            return categories.map((cat, i) => {
+                let data = currentFilter === 'all'
+                    ? (dashboardData.by_category[cat] || {})
+                    : (dashboardData.by_salesperson_cat[currentFilter]?.[cat] || {});
+                const target = data.sales_target || 0;
+                const actual = data.sales_actual || 0;
+                const rate = target > 0 ? (actual / target * 100).toFixed(1) : 0;
+                return { name: cat, target, actual, rate };
+            });
+        }
+
+        function updateDashboard() {
+            const data = getFilteredData();
+            if (!data) return;
+
+            const target = data.sales_target || 0;
+            const actual = data.sales_actual || 0;
+            const rate = target > 0 ? (actual / target * 100).toFixed(2) : 0;
+
+            // 卡片1：销售目标金额
+            document.getElementById('kpi1-target').textContent = formatMoney(target);
+            // 卡片2：当前销售金额
+            document.getElementById('kpi1-actual').textContent = formatMoney(actual);
+            // 卡片3：目标完成率
+            document.getElementById('kpi1-rate').textContent = rate + '%';
+
+            // 卡片4：目标终端数/在销终端数
+            // 目标终端数：根据切片器联动，"总体"时取总目录排重数量，选择经理时按"招商经理"筛选
+            let targetTerminals = 0;
+            if (currentFilter === 'all') {
+                // 总体：取所有终端排重（医院总院不重复）
+                targetTerminals = dashboardData.market_terminals || 0;
+            } else {
+                // 选择具体经理时：按"招商经理"字段筛选后统计
+                const filteredTerminals = dashboardData.terminals.filter(t => t.招商经理 === currentFilter);
+                targetTerminals = filteredTerminals.length;
+            }
+            const onSaleTerminals = data.terminal_count || 0;
+            const terminalRate = targetTerminals > 0 ? (onSaleTerminals / targetTerminals * 100).toFixed(1) : 0;
+            document.getElementById('kpi2-total').textContent = targetTerminals;
+            document.getElementById('kpi2-onsale-count').textContent = onSaleTerminals;
+            document.getElementById('kpi2-rate').innerHTML = '在销率 <span class="rate-num">' + terminalRate + '%</span>';
+
+            // 卡片5：在销产品数
+            document.getElementById('kpi3-onsale').textContent = data.product_on_sale || 0;
+
+            // 卡片6：销售费用
+            const fee = data.sales_fee || 0;
+            const feeRate = target > 0 ? (fee / target * 100).toFixed(2) : 0;
+            document.getElementById('kpi4-fee').textContent = formatMoney(fee);
+            document.getElementById('kpi4-feerate').innerHTML = feeRate + '%';
+
+            updateProgressRings();
+            updateCityTerminalChart();
+            // 渲染默认视图（终端销售明细）
+            document.querySelectorAll('.detail-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('terminalView').classList.add('active');
+            renderTerminalTable();
+        }
+
+        function updateCityTerminalChart() {
+            const chartDom = document.getElementById('cityTerminalChart');
+            if (!chartDom || !dashboardData.city_terminals) return;
+            
+            const cityData = dashboardData.city_terminals;
+            // 按指定顺序排序：广州市、深圳市、珠海市、湛江市
+            const cityOrder = ['广州市', '深圳市', '珠海市', '湛江市'];
+            const cities = cityOrder.filter(c => cityData.hasOwnProperty(c));
+            
+            // 根据产品分类过滤计算在销终端数
+            let onSaleData;
+            if (currentCategory === 'all') {
+                onSaleData = cities.map(c => cityData[c]['在销终端数'] || 0);
+            } else {
+                // 按产品分类过滤后重新计算各城市在销终端数
+                onSaleData = cities.map(city => {
+                    // 筛选该城市的产品（且符合产品分类）
+                    const filteredProducts = dashboardData.products.filter(p => {
+                        if ((p.城市 || '') !== city) return false;
+                        if (currentCategory !== 'all' && (p.产品分类 || '-') !== currentCategory) return false;
+                        // 有销量
+                        return (p['2025年销量'] || 0) > 1 || (p['当年销量'] || 0) > 1;
+                    });
+                    // 按医院总院排重
+                    const uniqueHospitals = [...new Set(filteredProducts.map(p => p.医院总院))];
+                    return uniqueHospitals.length;
+                });
+            }
+            
+            const totalData = cities.map(c => cityData[c]['医院目录数'] || 0);
+            
+            if (chartInstances['cityTerminal']) {
+                chartInstances['cityTerminal'].dispose();
+            }
+            
+            const chart = echarts.init(chartDom);
+            chartInstances['cityTerminal'] = chart;
+            
+            chart.setOption({
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' }
+                },
+                legend: {
+                    data: ['在销终端数', '销售产品数'],
+                    bottom: 0,
+                    textStyle: { fontSize: 10 }
+                },
+                grid: {
+                    left: '3%', right: '4%', bottom: '15%', top: '10%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'value',
+                    axisLabel: { fontSize: 11 }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: cities,
+                    axisLabel: { fontSize: 11 }
+                },
+                series: [
+                    {
+                        name: '在销终端数',
+                        type: 'bar',
+                        stack: 'total',
+                        data: onSaleData,
+                        itemStyle: { color: '#1873cf' },
+                        label: {
+                            show: true,
+                            position: 'inside',
+                            fontSize: 11,
+                            color: '#fff',
+                            formatter: function(params) {
+                                return onSaleData[params.dataIndex] > 0 ? onSaleData[params.dataIndex] : '';
+                            }
+                        }
+                    },
+                    {
+                        name: '销售产品数',
+                        type: 'bar',
+                        stack: 'total',
+                        data: totalData,
+                        itemStyle: { color: '#c0c0c0' },
+                        label: {
+                            show: true,
+                            position: 'inside',
+                            fontSize: 10,
+                            color: '#333',
+                            formatter: function(params) {
+                                const total = onSaleData[params.dataIndex] + totalData[params.dataIndex];
+                                return totalData[params.dataIndex] > 0 ? total : '';
+                            }
+                        }
+                    }
+                ]
+            });
+        }
+
+        function updateProgressRings() {
+            const ringData = getRingData();
+            // 蓝色系列：浅蓝、中蓝、深蓝
+            const colors = ['#6eb5ff', '#4294f4', '#1873cf'];
+            const allCategories = ['品牌品', '高值品', '商销品'];
+            
+            // 始终遍历3个环形图位置
+            for (let i = 0; i < 3; i++) {
+                const chartDom = document.getElementById('ring' + (i + 1));
+                const labelDom = chartDom.closest('.progress-item').querySelector('.progress-label');
+                
+                // 确定该位置应显示的数据
+                let item, catName;
+                if (currentCategory === 'all') {
+                    // 全产品模式：显示3个分类
+                    item = ringData[i];
+                    catName = allCategories[i];
+                } else {
+                    // 单分类模式：只有第一个位置显示选中的分类
+                    if (i === 0) {
+                        item = ringData[0];
+                        catName = currentCategory;
+                    } else {
+                        // 第2、3个位置显示空
+                        item = { name: '', target: 0, actual: 0, rate: 0 };
+                        catName = '';
+                    }
+                }
+                
+                if (chartInstances['ring' + (i + 1)]) chartInstances['ring' + (i + 1)].dispose();
+                
+                const chart = echarts.init(chartDom);
+                chartInstances['ring' + (i + 1)] = chart;
+                
+                const progressColor = currentCategory === 'all' ? colors[i] : colors[0];
+                
+                chart.setOption({
+                    series: [{
+                        type: 'gauge',
+                        startAngle: 90, endAngle: -270, radius: '90%',
+                        pointer: { show: false },
+                        progress: {
+                            show: item && item.name, overlap: false, roundCap: true, clip: false,
+                            itemStyle: { color: progressColor }
+                        },
+                        axisLine: { lineStyle: { width: 8, color: [[1, '#e8e8e8']] } },
+                        splitLine: { show: false },
+                        axisTick: { show: false },
+                        axisLabel: { show: false },
+                        data: item && item.name ? [{ value: parseFloat(item.rate), name: item.name }] : [],
+                        title: { show: false },
+                        detail: {
+                            fontSize: 14, fontWeight: 'bold', color: '#FF6B35',
+                            formatter: '{value}%', offsetCenter: [0, '0']
+                        }
+                    }]
+                });
+                
+                labelDom.textContent = catName;
+                document.getElementById('pt' + (i + 1) + '-target').textContent = item ? formatMoney(item.target) : '-';
+                document.getElementById('pt' + (i + 1) + '-actual').textContent = item ? formatMoney(item.actual) : '-';
+            }
+        }
+
+        function filterByCategory(category) {
+            currentCategory = category;
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.category === category);
+            });
+            // 更新环形图和城市终端图表
+            updateProgressRings();
+            updateCityTerminalChart();
+            // 重新计算卡片数据
+            updateDashboardForCategory();
+            if (currentDetailTab === 'terminal') {
+                renderTerminalTable();
+            } else {
+                renderProductTable();
+            }
+        }
+        
+        function updateDashboardForCategory() {
+            // 根据产品分类重新计算KPI数据
+            const categories = currentCategory === 'all' ? ['品牌品', '高值品', '商销品'] : [currentCategory];
+            let sales_target = 0, sales_actual = 0, sales_fee = 0;
+            let terminal_count = 0;
+            
+            categories.forEach(cat => {
+                const data = currentFilter === 'all'
+                    ? (dashboardData.by_category[cat] || {})
+                    : (dashboardData.by_salesperson_cat[currentFilter]?.[cat] || {});
+                sales_target += data.sales_target || 0;
+                sales_actual += data.sales_actual || 0;
+                sales_fee += data.sales_fee || 0;
+            });
+            
+            // 卡片1
+            document.getElementById('kpi1-target').textContent = formatMoney(sales_target);
+            document.getElementById('kpi1-actual').textContent = formatMoney(sales_actual);
+            const rate = sales_target > 0 ? (sales_actual / sales_target * 100).toFixed(2) : 0;
+            document.getElementById('kpi1-rate').textContent = rate + '%';
+            
+            // 卡片6
+            const feeRate = sales_target > 0 ? (sales_fee / sales_target * 100).toFixed(2) : 0;
+            document.getElementById('kpi4-fee').textContent = formatMoney(sales_fee);
+            document.getElementById('kpi4-feerate').textContent = '费用率 ' + feeRate + '%';
+        }
+
+        function switchDetailTab(tab) {
+            currentDetailTab = tab;
+            document.querySelectorAll('.detail-tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+            document.querySelectorAll('.detail-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab + 'View').classList.add('active');
+            // 返回主页时移除drilldown-mode
+            document.querySelector('.section').classList.remove('drilldown-mode');
+            // 渲染对应的表格
+            if (tab === 'terminal') renderTerminalTable();
+            else renderProductTable();
+        }
+
+        function switchTab(tab) {
+            currentView = tab;
+            drilldownStack = [];
+            document.querySelectorAll('.detail-tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+            document.querySelectorAll('.detail-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab + 'View').classList.add('active');
+            // 返回主页时移除drilldown-mode
+            document.querySelector('.section').classList.remove('drilldown-mode');
+            filterTable();
+        }
+
+        function filterTable() {
+            searchKeyword = document.getElementById('searchInput').value.toLowerCase().trim();
+            renderCurrentView();
+        }
+
+        function showView(view) {
+            document.querySelectorAll('.detail-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(view).classList.add('active');
+            // 下钻视图时隐藏Tab
+            if (view === 'terminalProductView' || view === 'productTerminalView') {
+                document.querySelector('.detail-tabs').style.display = 'none';
+            } else {
+                document.querySelector('.detail-tabs').style.display = 'flex';
+            }
+            // 渲染对应视图
+            if (view === 'terminal') renderTerminalTable();
+            else if (view === 'product') renderProductTable();
+            else if (view === 'terminalProductView') {
+                const lastDrill = drilldownStack[drilldownStack.length - 1];
+                if (lastDrill && lastDrill.hospital) {
+                    drillToTerminalProducts(lastDrill.hospital, true);
+                }
+            } else if (view === 'productTerminalView') {
+                const lastDrill = drilldownStack[drilldownStack.length - 1];
+                if (lastDrill && lastDrill.product) {
+                    drillToProductTerminals(lastDrill.product, true);
+                }
+            }
+        }
+
+        function renderCurrentView() {
+            if (currentDetailTab === 'terminal') renderTerminalTable();
+            else renderProductTable();
+        }
+
+        // 当前展开的医院名称
+        let expandedHospital = null;
+
+        function renderTerminalTable() {
+            let html = '';
+            let seqNum = 1;
+            // 按实际完成金额降序排列
+            const sortedTerminals = [...dashboardData.terminals].sort((a, b) => (b.销售金额 || 0) - (a.销售金额 || 0));
+            sortedTerminals.forEach(t => {
+                const rate = t.完成率 || 0;
+                const rateClass = rate >= 100 ? 'rate-high' : (rate >= 50 ? 'rate-mid' : 'rate-low');
+                const manager = t.招商经理 || '-';
+                const scale = t.销售规模 ? formatMoney(t.销售规模) : '-';
+                // 终端费用率 = Σ(销量×挂网价×实际政策) / Σ(销量×无税发货价) * 100%
+                const terminalProducts = dashboardData.products.filter(p => p.医院总院 === t.医院总院);
+                let totalGuaWang = 0, totalFaHuo = 0;
+                terminalProducts.forEach(p => {
+                    const qty = p.当年销量 || 0;
+                    const guaWangPrice = p.挂网价 || 0;
+                    const policy = p.实际政策 || 0;
+                    const faHuoPrice = p.无税发货价 || 0;
+                    totalGuaWang += qty * guaWangPrice * policy;
+                    totalFaHuo += qty * faHuoPrice;
+                });
+                const feeRate = totalFaHuo > 0 ? (totalGuaWang / totalFaHuo * 100).toFixed(1) + '%' : '-';
+                // 在销产品数：只计算2025年销量>1或2026年销量>1的产品
+                const activeProductsCount = terminalProducts.filter(p => ((p['2025年销量'] || 0) > 1 || (p['当年销量'] || 0) > 1)).length;
+                
+                html += `
+                    <tr>
+                        <td class="seq-cell">${seqNum++}</td>
+                        <td>${t.医院总院}</td>
+                        <td class="link-cell" onclick="toggleTerminalProducts('${t.医院总院}')">${activeProductsCount}</td>
+                        <td>${scale}</td>
+                        <td>${formatMoney(t.目标金额)}</td>
+                        <td>${formatMoney(t.销售金额)}</td>
+                        <td class="${rateClass}">${rate.toFixed(1)}%</td>
+                        <td>${feeRate}</td>
+                        <td>${manager}</td>
+                    </tr>
+                `;
+                // 如果这个医院被展开，显示产品明细（只显示2025年销量>1或2026年销量>1的产品）
+                if (expandedHospital === t.医院总院) {
+                    const products = dashboardData.products.filter(p => p.医院总院 === t.医院总院 && ((p['2025年销量'] || 0) > 1 || (p['当年销量'] || 0) > 1));
+                    let productHtml = '';
+                    products.forEach(p => {
+                        const targetAmt = (p.目标销量 || 0) * (p.实际政策 || 0);
+                        const actualAmt = (p.当年销量 || 0) * (p.实际政策 || 0);
+                        const pRate = targetAmt > 0 ? (actualAmt / targetAmt * 100) : 0;
+                        const pRateClass = pRate >= 100 ? 'rate-high' : (pRate >= 50 ? 'rate-mid' : 'rate-low');
+                        productHtml += `
+                            <tr class="detail-row">
+                                <td>${p.产品简称}</td>
+                                <td>${p.目标销量 || 0}</td>
+                                <td>${p.当年销量 || 0}</td>
+                                <td class="${pRateClass}">${pRate.toFixed(1)}%</td>
+                                <td>${p.客户代表 || '-'}</td>
+                                <td>${((p.实际政策 || 0) * 100).toFixed(0)}%</td>
+                            </tr>
+                        `;
+                    });
+                    if (productHtml) {
+                        html += `
+                            <tr class="detail-header-row">
+                                <td colspan="8">
+                                    <div class="detail-subtable">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>产品名称</th>
+                                                    <th>目标量</th>
+                                                    <th>完成量</th>
+                                                    <th>完成率</th>
+                                                    <th>客户</th>
+                                                    <th>实际政策</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>${productHtml}</tbody>
+                                        </table>
+                                        <button class="collapse-btn" onclick="toggleTerminalProducts('${t.医院总院}')">收起</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }
+                }
+            });
+            if (html === '') {
+                html = '<tr><td colspan="9" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+            }
+            document.getElementById('terminalTable').querySelector('tbody').innerHTML = html;
+        }
+
+        function toggleTerminalProducts(hospital) {
+            if (expandedHospital === hospital) {
+                expandedHospital = null;
+            } else {
+                expandedHospital = hospital;
+            }
+            renderTerminalTable();
+        }
+
+        function drillToTerminalProducts(hospital, isReturning = false) {
+            if (!isReturning) {
+                drilldownStack.push({ view: 'terminal', label: '终端销售明细' });
+            }
+            drilldownStack.push({ view: 'terminalProductView', label: hospital + '产品明细', hospital: hospital });
+            
+            // 只显示2025年销量>1或2026年销量>1的终端
+            const products = dashboardData.products.filter(p => p.医院总院 === hospital && ((p['2025年销量'] || 0) > 1 || (p['当年销量'] || 0) > 1));
+            let html = '';
+            products.forEach(p => {
+                const targetAmt = (p.目标销量 || 0) * (p.实际政策 || 0);
+                const actualAmt = (p.当年销量 || 0) * (p.实际政策 || 0);
+                const rate = targetAmt > 0 ? (actualAmt / targetAmt * 100) : 0;
+                const rateClass = rate >= 100 ? 'rate-high' : (rate >= 50 ? 'rate-mid' : 'rate-low');
+                html += `
+                    <tr>
+                        <td>${p.医院总院}</td>
+                        <td>${p.目标销量 || 0}</td>
+                        <td>${p.当年销量 || 0}</td>
+                        <td class="${rateClass}">${rate.toFixed(1)}%</td>
+                        <td>${p.客户代表 || '-'}</td>
+                        <td>${((p.实际政策 || 0) * 100).toFixed(0)}%</td>
+                    </tr>
+                `;
+            });
+            document.querySelectorAll('.detail-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('terminalProductView').classList.add('active');
+            document.querySelector('.section').classList.add('drilldown-mode');
+            document.querySelector('#terminalProductTable tbody').innerHTML = html;
+        }
+
+        function renderProductTable() {
+            let html = '';
+            let seqNum = 1;
+            // 按产品汇总
+            const productMap = {};
+            dashboardData.products.forEach(p => {
+                // 产品分类过滤
+                if (currentCategory !== 'all' && (p.产品分类 || '-') !== currentCategory) {
+                    return;
+                }
+                if (!productMap[p.产品简称]) {
+                    productMap[p.产品简称] = {
+                        name: p.产品简称,
+                        category: p.产品分类 || '-',
+                        terminalCount: 0,
+                        targetQuantity: 0,
+                        actualQuantity: 0,
+                        targetAmount: 0,
+                        actualAmount: 0,
+                        feeAmount: 0,
+                        terminals: []
+                    };
+                }
+                if (p.当年销量 > 0 || p.目标销量 > 0) {
+                    productMap[p.产品简称].terminalCount++;
+                }
+                productMap[p.产品简称].targetQuantity += p.目标销量 || 0;
+                productMap[p.产品简称].actualQuantity += p.当年销量 || 0;
+                // 目标金额和当前完成金额直接取附表字段，按产品汇总
+                productMap[p.产品简称].targetAmount += p.目标金额 || 0;
+                productMap[p.产品简称].actualAmount += p.销售金额 || 0;
+                productMap[p.产品简称].feeAmount += p.销售费用 || 0;
+                productMap[p.产品简称].terminals.push(p);
+            });
+            
+            // 按实际完成金额降序排列
+            const sortedProducts = Object.values(productMap).sort((a, b) => b.actualAmount - a.actualAmount);
+            sortedProducts.forEach(p => {
+                const rate = p.targetAmount > 0 ? (p.actualAmount / p.targetAmount * 100) : 0;
+                const rateClass = rate >= 100 ? 'rate-high' : (rate >= 50 ? 'rate-mid' : 'rate-low');
+                // 产品费用率 = Σ(销量×挂网价×实际政策) / Σ(销量×无税发货价) * 100%
+                let totalGuaWang = 0, totalFaHuo = 0;
+                p.terminals.forEach(t => {
+                    const qty = t.当年销量 || 0;
+                    const guaWangPrice = t.挂网价 || 0;
+                    const policy = t.实际政策 || 0;
+                    const faHuoPrice = t.无税发货价 || 0;
+                    totalGuaWang += qty * guaWangPrice * policy;
+                    totalFaHuo += qty * faHuoPrice;
+                });
+                const feeRate = totalFaHuo > 0 ? (totalGuaWang / totalFaHuo * 100).toFixed(1) + '%' : '-';
+                html += `
+                    <tr>
+                        <td class="seq-cell">${seqNum++}</td>
+                        <td>${p.name}</td>
+                        <td>${p.category}</td>
+                        <td class="link-cell" onclick="toggleProductTerminals('${p.name}')">${p.terminalCount || 0}</td>
+                        <td>${p.targetQuantity.toLocaleString()}</td>
+                        <td>${p.actualQuantity.toLocaleString()}</td>
+                        <td>${formatMoney(p.targetAmount)}</td>
+                        <td>${formatMoney(p.actualAmount)}</td>
+                        <td class="${rateClass}">${rate.toFixed(1)}%</td>
+                        <td>${feeRate}</td>
+                    </tr>
+                `;
+                // 如果这个产品被展开，显示终端明细（只显示2025年销量>0或2026年销量>0的终端）
+                if (expandedProduct === p.name) {
+                    let terminalHtml = '';
+                    // 筛选2025年销量>0或2026年销量>0的终端
+                    const activeTerminals = p.terminals.filter(t => (t['2025年销量'] || 0) > 0 || (t.当年销量 || 0) > 0);
+                    activeTerminals.forEach(t => {
+                        const tRate = (t.目标销量 || 0) > 0 ? ((t.当年销量 || 0) / (t.目标销量 || 1) * 100) : 0;
+                        const tRateClass = tRate >= 100 ? 'rate-high' : (tRate >= 50 ? 'rate-mid' : 'rate-low');
+                        terminalHtml += `
+                            <tr class="detail-row">
+                                <td>${t.医院总院}</td>
+                                <td>${t.等级 || '-'}</td>
+                                <td>${t.目标销量 || 0}</td>
+                                <td>${t.当年销量 || 0}</td>
+                                <td class="${tRateClass}">${tRate.toFixed(1)}%</td>
+                                <td>${t.客户代表 || '-'}</td>
+                                <td>${((t.实际政策 || 0) * 100).toFixed(0)}%</td>
+                            </tr>
+                        `;
+                    });
+                    if (terminalHtml) {
+                        html += `
+                            <tr class="detail-header-row">
+                                <td colspan="9">
+                                    <div class="detail-subtable">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>医院总院</th>
+                                                    <th>等级</th>
+                                                    <th>目标量</th>
+                                                    <th>实际销量</th>
+                                                    <th>完成率</th>
+                                                    <th>客户</th>
+                                                    <th>实际政策</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>${terminalHtml}</tbody>
+                                        </table>
+                                        <button class="collapse-btn" onclick="toggleProductTerminals('${p.name}')">收起</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }
+                }
+            });
+            if (html === '') {
+                html = '<tr><td colspan="10" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
+            }
+            document.getElementById('productTable').querySelector('tbody').innerHTML = html;
+        }
+
+        let expandedProduct = null;
+
+        function toggleProductTerminals(productName) {
+            if (expandedProduct === productName) {
+                expandedProduct = null;
+            } else {
+                expandedProduct = productName;
+            }
+            renderProductTable();
+        }
+
+        function drillToProductTerminals(productName, isReturning = false) {
+            if (!isReturning) {
+                drilldownStack.push({ view: 'product', label: '产品销售明细' });
+            }
+            drilldownStack.push({ view: 'productTerminalView', label: productName + '终端明细', product: productName });
+            
+            const products = dashboardData.products.filter(p => p.产品简称 === productName);
+            let html = '';
+            products.forEach(p => {
+                const rate = p.目标销量 > 0 ? ((p.当年销量 || 0) / p.目标销量 * 100) : 0;
+                const rateClass = rate >= 100 ? 'rate-high' : (rate >= 50 ? 'rate-mid' : 'rate-low');
+                html += `
+                    <tr>
+                        <td>${p.医院总院}</td>
+                        <td>${p.等级 || '-'}</td>
+                        <td>${p.目标销量 || 0}</td>
+                        <td>${p.当年销量 || 0}</td>
+                        <td class="${rateClass}">${rate.toFixed(1)}%</td>
+                        <td>${p.客户代表 || '-'}</td>
+                        <td>${((p.实际政策 || 0) * 100).toFixed(0)}%</td>
+                    </tr>
+                `;
+            });
+            document.querySelectorAll('.detail-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('productTerminalView').classList.add('active');
+            document.querySelector('.section').classList.add('drilldown-mode');
+            document.querySelector('#productTerminalTable tbody').innerHTML = html;
+        }
+
+        window.addEventListener('resize', () => {
+            Object.values(chartInstances).forEach(chart => chart.resize());
+        });
+
+        loadData();
+    </script>
+</body>
+</html>
